@@ -1,38 +1,57 @@
-import { W, H } from '../core/Game.js';
-import { text, drawBackground } from '../gfx/draw.js';
-import { Sprites, drawSprite } from '../gfx/sprites.js';
+import { screen, clearScreen, menuNav } from '../ui/ui.js';
 import { ScoreSystem } from '../systems/ScoreSystem.js';
 import { STORY } from '../data/story.js';
+import { getBackdrop } from './Backdrop.js';
 import { StoryScene } from './StoryScene.js';
 import { PlatformScene } from './PlatformScene.js';
 import { HowToScene } from './HowToScene.js';
 import { CreditsScene } from './CreditsScene.js';
-import { cursor } from './BattleScene.js';
 
-const OPTIONS = ['JUGAR', 'CÓMO JUGAR', 'CRÉDITOS'];
+const OPTIONS = ['Jugar', 'Cómo jugar', 'Créditos'];
 
-/** TitleScene: pantalla de inicio (splash) con menú principal. */
+/** TitleScene: pantalla de inicio sobre el bosque en 3D, con el cazador junto a la hoguera. */
 export class TitleScene {
   constructor(game) {
     this.game = game;
     this.index = 0;
-    this.time = 0;
-    this.highScore = ScoreSystem.loadHighScore();
   }
 
-  enter() { this.game.audio.playMusic('title'); }
+  enter() {
+    this.backdrop = getBackdrop(this.game, 0);
+    this.game.audio.playMusic('title');
+    this.render();
+  }
 
-  update(dt) {
-    const { input, audio } = this.game;
-    this.time += dt;
-    if (input.pressed('up')) { this.index = (this.index + OPTIONS.length - 1) % OPTIONS.length; audio.sfx('move'); }
-    if (input.pressed('down')) { this.index = (this.index + 1) % OPTIONS.length; audio.sfx('move'); }
-    if (!input.pressed('confirm')) return;
-    audio.sfx('select');
+  exit() { clearScreen(); }
+
+  render() {
+    const record = String(ScoreSystem.loadHighScore()).padStart(6, '0');
+    const el = screen(`
+      <div class="title-screen">
+        <div class="t1">EL ÚLTIMO</div>
+        <div class="title-xl">CAZADOR</div>
+        <div class="tag">Plata para los muertos. Acero para los hombres.</div>
+        <div class="opts">${OPTIONS.map((o, i) => `<button data-i="${i}" class="${i === this.index ? 'sel' : ''}">${o}</button>`).join('')}</div>
+      </div>
+      <div class="footbar">
+        <span>↑ ↓ elegir · Enter confirmar · M sonido</span><span>Récord ${record}</span>
+      </div>`);
+    el.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { this.index = Number(b.dataset.i); this.choose(); }));
+  }
+
+  update() {
+    const input = this.game.input;
+    const next = menuNav(input, OPTIONS.length, this.index);
+    if (next !== this.index) { this.index = next; this.game.audio.sfx('move'); this.render(); }
+    if (input.pressed('confirm')) this.choose();
+  }
+
+  choose() {
     const g = this.game;
+    g.audio.sfx('select');
     if (this.index === 0) {
       g.newRun();
-      g.changeScene(new StoryScene(g, STORY.intro, () => g.changeScene(new PlatformScene(g)), { title: 'PRÓLOGO' }));
+      g.changeScene(new StoryScene(g, STORY.intro, () => g.changeScene(new PlatformScene(g)), { title: 'Prólogo' }));
     } else if (this.index === 1) {
       g.changeScene(new HowToScene(g, this));
     } else {
@@ -40,29 +59,5 @@ export class TitleScene {
     }
   }
 
-  draw(ctx) {
-    const camX = this.time * 12;
-    drawBackground(ctx, 'forest', camX, W, H, this.time);
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(0, 0, W, H);
-
-    // Acantilado con el cazador mirando la luna
-    ctx.fillStyle = '#0c120e';
-    ctx.fillRect(0, 140, 110, 36);
-    ctx.fillRect(0, 132, 80, 8);
-    drawSprite(ctx, Sprites.hunter('idle', 0), 40, 100, { scale: 2 });
-
-    text(ctx, 'EL ÚLTIMO', W / 2 + 30, 26, { align: 'center', size: 12, color: '#cfd8dc' });
-    text(ctx, 'CAZADOR', W / 2 + 30, 44, { align: 'center', size: 20, color: '#c9a227' });
-    text(ctx, 'Plata para las bestias. Acero para los hombres.', W / 2, 72, { align: 'center', size: 5, color: '#9aa3ad' });
-
-    OPTIONS.forEach((o, i) => {
-      const y = 96 + i * 14;
-      text(ctx, o, 170, y, { color: i === this.index ? '#ffd34a' : '#f2efe6' });
-      if (i === this.index) cursor(ctx, 158, y);
-    });
-
-    text(ctx, `RÉCORD ${String(this.highScore).padStart(6, '0')}`, W - 6, H - 12, { align: 'right', size: 6, color: '#9aa3ad' });
-    text(ctx, 'M: sonido', 6, H - 12, { size: 6, color: '#666' });
-  }
+  frame(dt) { this.backdrop.frame(dt); }
 }

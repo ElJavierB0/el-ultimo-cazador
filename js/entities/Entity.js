@@ -13,8 +13,8 @@ export class Entity {
     this.vx = 0;
     this.vy = 0;
     this.onGround = false;
-    this.gravity = 1000;
-    this.maxFall = 420;
+    this.gravity = 2000;
+    this.maxFall = 840;
     this.removed = false;
   }
 

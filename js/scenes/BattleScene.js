@@ -1,236 +1,300 @@
-import { W, H } from '../core/Game.js';
-import { BESTIARY, EFFECTIVENESS, PLAYER_MOVES } from '../data/bestiary.js';
-import { Sprites, drawSprite } from '../gfx/sprites.js';
-import { THEMES, text, wrap, box, hpBar } from '../gfx/draw.js';
+import * as THREE from 'three';
+import { BESTIARY, EFFECTIVENESS, PLAYER_MOVES, TYPE_LABEL } from '../data/bestiary.js';
+import { $, show, popup, setBar } from '../ui/ui.js';
 
-const MENU = ['ESPADA', 'SEÑAL', 'POCIÓN', 'HUIR'];
+const MENU = [
+  { key: 'espada', label: 'ESPADA' },
+  { key: 'senal', label: 'SEÑAL' },
+  { key: 'pocion', label: 'POCIÓN' },
+  { key: 'huir', label: 'HUIR' },
+];
 const SUBMENUS = { espada: ['acero', 'plata'], senal: ['ascua', 'egida'] };
 const MAX_VIGOR = 3;
+const GAP = 1.9; // distancia de cada combatiente al centro
 
 /**
- * BattleScene: combate por turnos.
- * El jugador elige una acción; después actúa el monstruo. Todo lo que sucede se agrega a una
- * cola de pasos (mensaje, animación o función) que se reproduce en orden.
+ * BattleScene: combate por turnos con cámara cinematográfica, en el mismo mundo 3D del nivel.
+ * El turno se escribe como una secuencia asíncrona: mensaje → animación → daño → turno enemigo.
  */
 export class BattleScene {
   constructor(game, origin, enemyEntity) {
     this.game = game;
     this.origin = origin;
+    this.engine = game.engine;
+    this.world = origin.world;
     this.enemyEntity = enemyEntity;
+    this.hero = origin.hero;
+    this.foeActor = enemyEntity.actor;
     const data = BESTIARY[enemyEntity.kind];
     const li = game.levelIndex;
     const maxHp = Math.round(data.hp * (1 + 0.25 * li));
     this.data = data;
     this.foe = {
-      name: data.name, kind: enemyEntity.kind, type: data.type, boss: !!data.boss,
-      maxHp, hp: maxHp, atk: data.atk + li * 2, def: data.def + li,
-      level: (data.boss ? 5 : 2) + li * 4, moves: data.moves, burn: 0, atkMod: 0,
+      name: data.name, type: data.type, boss: !!data.boss, maxHp, hp: maxHp,
+      atk: data.atk + li * 2, def: data.def + li, level: (data.boss ? 5 : 2) + li * 4,
+      moves: data.moves, burn: 0, atkMod: 0,
     };
     this.vigor = MAX_VIGOR;
     this.shield = false;
     this.pAtkMod = 0;
     this.pDefMod = 0;
     this.damageTaken = 0;
-
-    this.queue = [];
-    this.cur = null;
-    this.mode = 'queue';
+    this.mode = 'busy';
     this.menuIndex = 0;
     this.subKind = null;
     this.subIndex = 0;
-    this.msg = '';
-    this.chars = 0;
-    this.hold = 0;
-    this.anim = null;
-    this.particles = [];
+    this.waiter = null;
+    this.tweens = [];
     this.shake = 0;
-    this.time = 0;
-    this.introT = 0;
     this.over = false;
-
-    this.foeHpTarget = this.foe.hp;
-    this.foeHpShown = this.foe.hp;
-    this.pHpTarget = game.hunter.hp;
-    this.pHpShown = game.hunter.hp;
-
-    const typeLabel = { humano: 'humano: usa ACERO', bestia: 'una bestia', monstruo: 'un monstruo: usa PLATA', espectro: 'un espectro: usa PLATA' };
-    this.say(this.foe.boss ? `¡${this.foe.name} defiende su territorio!` : `¡Un ${this.foe.name} te cierra el paso!`);
-    this.say(`El medallón vibra... es ${typeLabel[this.foe.type]}.`);
+    this.camPos = new THREE.Vector3();
+    this.camLook = new THREE.Vector3();
   }
 
+  /* ---------- Preparación ---------- */
   enter() {
     this.game.audio.playMusic(this.foe.boss ? 'boss' : 'battle');
+    show('hud', false);
+    show('battle');
+    // Coloca a los combatientes frente a frente
+    const fp = this.foeActor.group.position;
+    const side = this.hero.group.position.x <= fp.x ? 1 : -1;
+    this.side = side;
+    this.center = new THREE.Vector3(fp.x - side * GAP, fp.y, 0);
+    this.heroHome = new THREE.Vector3(this.center.x - side * GAP, fp.y, 0);
+    this.foeHome = new THREE.Vector3(this.center.x + side * GAP, fp.y, 0);
+    this.hero.group.position.copy(this.heroHome);
+    this.foeActor.group.position.copy(this.foeHome);
+    this.hero.group.visible = true;
+    this.hero.face(side);
+    this.foeActor.face(-side);
+    this.hero.play('combat');
+    this.foeActor.play('combat');
+    this.camPos.set(this.center.x - side * 1.6, fp.y + 1.9, 6.6);
+    this.camLook.set(this.center.x + side * 0.25, fp.y + 0.95, 0);
+    this.engine.camera.position.copy(this.camPos).add(new THREE.Vector3(-side * 2, 1.2, 3));
+    this.shieldMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1.05, 32, 24),
+      new THREE.MeshBasicMaterial({ color: '#7cc4ff', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }),
+    );
+    this.shieldMesh.position.copy(this.heroHome).add(new THREE.Vector3(0, 0.85, 0));
+    this.engine.scene.add(this.shieldMesh);
+
+    $('b-foe-name').textContent = this.foe.name;
+    $('b-foe-lvl').textContent = `Nv ${this.foe.level}`;
+    this.refresh();
+    this.intro();
   }
 
-  /* ---------- Cola de pasos ---------- */
-  say(str) { this.queue.push({ type: 'msg', text: str }); }
-  play(name, dur, sfx) { this.queue.push({ type: 'anim', name, dur, sfx }); }
-  call(fn) { this.queue.push({ type: 'call', fn }); }
-
-  nextStep() {
-    this.cur = this.queue.shift() || null;
-    if (!this.cur) {
-      if (!this.over) { this.mode = 'menu'; this.msg = ''; }
-      return;
-    }
-    if (this.cur.type === 'msg') {
-      this.msg = this.cur.text;
-      this.chars = 0;
-      this.hold = 0;
-    } else if (this.cur.type === 'anim') {
-      this.anim = { name: this.cur.name, t: 0, dur: this.cur.dur };
-      if (this.cur.sfx) this.game.audio.sfx(this.cur.sfx);
-      this.spawnAnimParticles(this.cur.name);
-    } else if (this.cur.type === 'call') {
-      this.cur.fn();
-      this.cur = null;
-    }
+  exit() {
+    show('battle', false);
+    this.engine.scene.remove(this.shieldMesh);
+    this.shieldMesh.geometry.dispose();
+    this.shieldMesh.material.dispose();
   }
 
+  async intro() {
+    const hint = { humano: 'es humano: usa ACERO', nomuerto: 'es un no-muerto: usa PLATA', arcano: 'es una criatura arcana' };
+    if (this.foe.boss) this.foeActor.once('taunt', 'combat');
+    await this.say(this.foe.boss ? `¡${this.foe.name} defiende su territorio!` : `¡${this.foe.name} te cierra el paso!`);
+    await this.say(`El medallón vibra... ${hint[this.foe.type]}.`);
+    this.openMenu();
+  }
+
+  /* ---------- Interfaz ---------- */
+  refresh() {
+    const h = this.game.hunter;
+    $('b-hero-lvl').textContent = `Nv ${h.level}`;
+    setBar('b-hero-hp', h.hp / h.maxHp);
+    $('b-hero-num').textContent = `${h.hp}/${h.maxHp}`;
+    setBar('b-foe-hp', this.foe.hp / this.foe.maxHp);
+    $('b-vigor').innerHTML = Array.from({ length: MAX_VIGOR }, (_, i) => `<i class="${i < this.vigor ? 'on' : ''}"></i>`).join('');
+    $('b-hero-chips').innerHTML = (this.shield ? '<span class="shield">ÉGIDA</span>' : '') + (this.pAtkMod < 0 ? '<span class="debuff">ATK↓</span>' : '') + (this.pDefMod < 0 ? '<span class="debuff">DEF↓</span>' : '');
+    $('b-foe-chips').innerHTML = `<span>${TYPE_LABEL[this.foe.type]}</span>${this.foe.boss ? '<span class="boss">GUARDIÁN</span>' : ''}${this.foe.burn > 0 ? '<span class="burn">QUEMADO</span>' : ''}`;
+  }
+
+  openMenu() {
+    if (this.over) return;
+    this.mode = 'menu';
+    $('b-msg').textContent = `¿Qué hará ${this.game.hunter.name}?`;
+    this.renderMenu();
+  }
+
+  renderMenu() {
+    const menu = $('b-menu');
+    show('b-menu');
+    menu.classList.remove('single');
+    if (this.mode === 'menu') {
+      menu.innerHTML = MENU.map((m, i) => `<button data-i="${i}" class="${i === this.menuIndex ? 'sel' : ''}">${m.label}${m.key === 'pocion' ? ` ×${this.game.hunter.potions}` : ''}</button>`).join('');
+    } else {
+      const keys = SUBMENUS[this.subKind];
+      menu.classList.add('single');
+      menu.innerHTML = keys.map((k, i) => {
+        const mv = PLAYER_MOVES[k];
+        const off = this.vigor < mv.cost ? ' off' : '';
+        return `<button data-i="${i}" class="${i === this.subIndex ? 'sel' : ''}${off}">${mv.short}${mv.cost ? ` · ${mv.cost} vigor` : ''}</button>`;
+      }).join('') + `<div class="hint">${PLAYER_MOVES[keys[this.subIndex]].hint} · Esc: volver</div>`;
+      $('b-msg').textContent = PLAYER_MOVES[keys[this.subIndex]].name;
+    }
+    menu.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+      const i = Number(b.dataset.i);
+      if (this.mode === 'menu') this.menuIndex = i; else this.subIndex = i;
+      this.confirm();
+    }));
+  }
+
+  hideMenu() {
+    show('b-menu', false);
+  }
+
+  /** Escribe un mensaje letra por letra; termina solo o al presionar Enter. */
+  say(text, hold = 1.0) {
+    return new Promise((resolve) => {
+      this.waiter = { text, chars: 0, hold, t: 0, resolve };
+      $('b-msg').textContent = '';
+    });
+  }
+
+  /* ---------- Entrada ---------- */
   update(dt) {
     const input = this.game.input;
-    this.time += dt;
-    this.introT = Math.min(1, this.introT + dt * 1.8);
-    if (this.shake > 0) this.shake -= dt;
-
-    // Barras de vida animadas
-    this.foeHpShown += Math.sign(this.foeHpTarget - this.foeHpShown) * Math.min(Math.abs(this.foeHpTarget - this.foeHpShown), dt * 40);
-    this.pHpShown += Math.sign(this.pHpTarget - this.pHpShown) * Math.min(Math.abs(this.pHpTarget - this.pHpShown), dt * 40);
-
-    this.particles.forEach((p) => { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; });
-    this.particles = this.particles.filter((p) => p.t > 0);
-
-    if (this.introT < 1) return;
-
-    if (this.mode === 'menu') return this.updateMenu(input);
-    if (this.mode === 'sub') return this.updateSub(input);
-
-    // Modo cola: reproduce el paso actual
-    if (!this.cur) { this.nextStep(); return; }
-    if (this.cur.type === 'msg') {
-      if (this.chars < this.msg.length) {
-        this.chars += dt * 60;
-        if (input.pressed('confirm')) this.chars = this.msg.length;
+    const audio = this.game.audio;
+    if (this.waiter) {
+      const w = this.waiter;
+      if (w.chars < w.text.length) {
+        w.chars = Math.min(w.text.length, w.chars + dt * 60);
+        if (input.pressed('confirm')) w.chars = w.text.length;
+        $('b-msg').textContent = w.text.slice(0, Math.floor(w.chars));
       } else {
-        this.hold += dt;
-        if (this.hold > 1.1 || input.pressed('confirm')) this.cur = null;
+        w.t += dt;
+        if (w.t > w.hold || input.pressed('confirm')) { this.waiter = null; w.resolve(); }
       }
-    } else if (this.cur.type === 'anim') {
-      this.anim.t += dt;
-      if (this.anim.t >= this.anim.dur) { this.anim = null; this.cur = null; }
-    }
-  }
-
-  updateMenu(input) {
-    const audio = this.game.audio;
-    const col = this.menuIndex % 2;
-    const row = Math.floor(this.menuIndex / 2);
-    if (input.pressed('left') || input.pressed('right')) { this.menuIndex = row * 2 + (1 - col); audio.sfx('move'); }
-    if (input.pressed('up') || input.pressed('down')) { this.menuIndex = (1 - row) * 2 + col; audio.sfx('move'); }
-    if (!input.pressed('confirm')) return;
-    audio.sfx('select');
-    switch (this.menuIndex) {
-      case 0: this.openSub('espada'); break;
-      case 1: this.openSub('senal'); break;
-      case 2:
-        if (this.game.hunter.potions > 0) this.executeTurn('potion');
-        else this.notice('No te quedan pociones.');
-        break;
-      case 3: this.executeTurn('flee'); break;
-      default: break;
-    }
-  }
-
-  openSub(kind) {
-    this.subKind = kind;
-    this.subIndex = 0;
-    this.mode = 'sub';
-  }
-
-  updateSub(input) {
-    const audio = this.game.audio;
-    if (input.pressed('up') || input.pressed('down')) { this.subIndex = 1 - this.subIndex; audio.sfx('move'); }
-    if (input.pressed('back')) { this.mode = 'menu'; audio.sfx('back'); return; }
-    if (!input.pressed('confirm')) return;
-    const key = SUBMENUS[this.subKind][this.subIndex];
-    if (this.vigor < PLAYER_MOVES[key].cost) {
-      audio.sfx('locked');
-      this.notice('No tienes suficiente vigor.');
       return;
     }
-    audio.sfx('select');
-    this.executeTurn(key);
+    if (this.mode === 'menu') {
+      const col = this.menuIndex % 2;
+      const row = Math.floor(this.menuIndex / 2);
+      if (input.pressed('left') || input.pressed('right')) { this.menuIndex = row * 2 + (1 - col); audio.sfx('move'); this.renderMenu(); }
+      if (input.pressed('up') || input.pressed('down')) { this.menuIndex = (1 - row) * 2 + col; audio.sfx('move'); this.renderMenu(); }
+      if (input.pressed('confirm')) this.confirm();
+    } else if (this.mode === 'sub') {
+      if (input.pressed('up') || input.pressed('down') || input.pressed('left') || input.pressed('right')) { this.subIndex = 1 - this.subIndex; audio.sfx('move'); this.renderMenu(); }
+      if (input.pressed('back')) { this.mode = 'menu'; audio.sfx('back'); this.openMenu(); }
+      if (input.pressed('confirm')) this.confirm();
+    }
   }
 
-  /** Muestra un aviso sin gastar el turno. */
-  notice(str) {
-    this.mode = 'queue';
-    this.say(str);
+  async confirm() {
+    const audio = this.game.audio;
+    if (this.mode === 'menu') {
+      audio.sfx('select');
+      const key = MENU[this.menuIndex].key;
+      if (key === 'espada' || key === 'senal') { this.mode = 'sub'; this.subKind = key; this.subIndex = 0; this.renderMenu(); return; }
+      if (key === 'pocion' && this.game.hunter.potions <= 0) { await this.notice('No te quedan pociones.'); return; }
+      this.runTurn(key === 'pocion' ? 'potion' : 'flee');
+    } else if (this.mode === 'sub') {
+      const key = SUBMENUS[this.subKind][this.subIndex];
+      if (this.vigor < PLAYER_MOVES[key].cost) { audio.sfx('locked'); await this.notice('No tienes suficiente vigor.'); return; }
+      audio.sfx('select');
+      this.runTurn(key);
+    }
   }
 
-  /* ---------- Lógica del combate ---------- */
+  async notice(text) {
+    this.mode = 'busy';
+    this.hideMenu();
+    await this.say(text, 0.8);
+    this.openMenu();
+  }
+
+  /* ---------- Turnos ---------- */
   calcDamage(power, atk, def, mult, ignoreDef = false) {
     const variance = 0.85 + Math.random() * 0.15;
-    const dmg = (power + atk) * mult * variance - (ignoreDef ? 0 : def);
-    return Math.max(1, Math.round(dmg));
+    return Math.max(1, Math.round((power + atk) * mult * variance - (ignoreDef ? 0 : def)));
   }
 
-  executeTurn(action) {
-    this.mode = 'queue';
-    const result = this.playerAct(action);
-    if (result === 'end' || result === 'noturn') return;
-    if (this.foeAct()) return;
-    this.endOfTurn();
+  async runTurn(action) {
+    this.mode = 'busy';
+    this.hideMenu();
+    const result = await this.playerAct(action);
+    if (result === 'end') return;
+    if (result === 'noturn') { this.openMenu(); return; }
+    if (await this.foeAct()) return;
+    if (await this.endOfTurn()) return;
+    this.openMenu();
   }
 
-  playerAct(action) {
+  async playerAct(action) {
     const h = this.game.hunter;
     const foe = this.foe;
     const score = this.game.score;
+    const audio = this.game.audio;
 
     if (action === 'potion') {
       h.potions--;
       const healed = h.heal(Math.max(20, Math.round(h.maxHp * 0.5)));
-      this.say('Kaelen bebe una poción.');
-      this.play('heal', 0.6, 'heal');
-      this.call(() => { this.pHpTarget = h.hp; });
-      this.say(`Recupera ${healed} PV.`);
+      this.say('Kaelen bebe una poción.', 0.2);
+      audio.sfx('heal');
+      await this.hero.once('item', 'combat');
+      this.world.burst(this.hero.group.position.clone().add(new THREE.Vector3(0, 1, 0)), '#7dffb0', 30);
+      this.pop(`+${healed}`, this.hero, '#7dffb0', true);
+      this.refresh();
+      await this.say(`Recupera ${healed} PV.`, 0.7);
       return 'ok';
     }
 
     if (action === 'flee') {
-      if (foe.boss) {
-        this.say('¡No puedes huir de un guardián!');
-        return 'noturn';
-      }
+      if (foe.boss) { await this.say('¡No puedes huir de un guardián!'); return 'noturn'; }
       if (Math.random() < 0.7) {
         score.add('FLEE');
-        this.say('Kaelen escapa entre las sombras.');
-        this.call(() => this.finish('flee'));
+        audio.sfx('back');
+        this.say('Kaelen escapa entre las sombras.', 0.4);
+        this.hero.face(-this.side);
+        this.hero.play('run');
+        await this.move(this.hero, this.heroHome.x - this.side * 4, 0.6);
+        this.finish('flee');
         return 'end';
       }
-      this.say('¡No pudiste escapar!');
+      await this.say('¡No pudiste escapar!');
       return 'ok';
     }
 
     const mv = PLAYER_MOVES[action];
     this.vigor -= mv.cost;
+    this.refresh();
 
     if (action === 'egida') {
       this.shield = true;
-      this.say('Kaelen traza la señal Égida.');
-      this.play('shield', 0.6, 'shield');
-      this.say('Un escudo mágico lo rodea.');
+      this.say('Kaelen traza la señal Égida.', 0.2);
+      audio.sfx('shield');
+      await this.hero.once('block', 'combat');
+      this.tween(0.4, (k) => { this.shieldMesh.material.opacity = 0.28 * k; });
+      this.refresh();
+      await this.say('Un escudo mágico lo rodea.', 0.6);
       return 'ok';
     }
 
-    this.say(`Kaelen usa ${mv.name}.`);
-    const sfx = action === 'ascua' ? 'fire' : action === 'plata' ? 'silver' : 'slash';
-    this.play(action === 'ascua' ? 'fire' : 'playerLunge', action === 'ascua' ? 0.6 : 0.35, sfx);
+    this.say(`Kaelen usa ${mv.name}.`, 0.1);
+    if (action === 'ascua') {
+      audio.sfx('fire');
+      const cast = this.hero.once('cast', 'combat');
+      await this.wait(0.35);
+      await this.fireball();
+      await cast;
+    } else {
+      audio.sfx(action === 'plata' ? 'silver' : 'slash');
+      this.hero.play('run', { fade: 0.08 });
+      await this.move(this.hero, this.foeHome.x - this.side * 1.05, 0.28);
+      await this.hero.once('attack', null, 1.25);
+      this.hero.play('run', { fade: 0.1 });
+      this.move(this.hero, this.heroHome.x, 0.35).then(() => this.hero.play('combat'));
+    }
 
     if (action !== 'ascua' && Math.random() < 0.05) {
-      this.play('none', 0.1, 'miss');
-      this.say('¡El ataque falló!');
+      audio.sfx('miss');
+      this.foeActor.once('dodge', 'combat');
+      this.pop('Falló', this.foeActor, '#cfcfcf');
+      await this.say('¡El ataque falló!');
       return 'ok';
     }
 
@@ -238,317 +302,242 @@ export class BattleScene {
     const crit = action !== 'ascua' && Math.random() < 0.1;
     const dmg = this.calcDamage(mv.power, h.atk + this.pAtkMod, foe.def, mult * (crit ? 1.5 : 1), action === 'ascua');
     foe.hp = Math.max(0, foe.hp - dmg);
-    this.play('foeHit', 0.5, crit ? 'crit' : 'hit');
-    this.call(() => { this.foeHpTarget = foe.hp; });
+    audio.sfx(crit ? 'crit' : 'hit');
+    this.shake = 0.25;
+    this.world.burst(this.foeActor.group.position.clone().add(new THREE.Vector3(0, 1, 0.3)), action === 'ascua' ? '#ff8a2a' : '#e8f4ff', 22);
+    this.pop(crit ? `¡${dmg}!` : `-${dmg}`, this.foeActor, crit ? '#ffd34a' : mult > 1 ? '#ffb27a' : '#ffffff', crit || mult > 1);
+    this.refresh();
+    if (foe.hp > 0) await this.foeActor.once('hit', 'combat');
 
-    if (crit) { score.add('CRITICAL_HIT'); this.say('¡Golpe crítico!'); }
-    if (mult > 1) { score.add('EFFECTIVE_HIT'); this.say('¡Es un golpe certero!'); }
-    if (mult < 1) this.say('No es muy eficaz...');
+    if (crit) { score.add('CRITICAL_HIT'); await this.say('¡Golpe crítico!', 0.6); }
+    if (mult > 1) { score.add('EFFECTIVE_HIT'); await this.say('¡Es un golpe certero!', 0.6); }
+    if (mult < 1) await this.say('No es muy eficaz...', 0.6);
     if (action === 'ascua' && foe.hp > 0) {
       foe.burn = 2;
-      this.call(() => { this.burnShown = true; });
-      this.say(`${foe.name} arde en llamas.`);
+      this.refresh();
+      await this.say(`${foe.name} arde en llamas.`, 0.6);
     }
-
-    if (foe.hp <= 0) { this.victory(); return 'end'; }
+    if (foe.hp <= 0) { await this.victory(); return 'end'; }
     return 'ok';
   }
 
   pickFoeMove() {
     const total = this.foe.moves.reduce((s, m) => s + m.weight, 0);
     let r = Math.random() * total;
-    for (const m of this.foe.moves) {
-      r -= m.weight;
-      if (r <= 0) return m;
-    }
+    for (const m of this.foe.moves) { r -= m.weight; if (r <= 0) return m; }
     return this.foe.moves[0];
   }
 
-  /** Turno del monstruo. Devuelve true si el combate terminó. */
-  foeAct() {
+  /** Turno del enemigo. Devuelve true si la batalla terminó. */
+  async foeAct() {
     const h = this.game.hunter;
     const foe = this.foe;
+    const audio = this.game.audio;
     const mv = this.pickFoeMove();
-    this.say(`${foe.name} usa ${mv.name}.`);
-    this.play('foeLunge', 0.35, 'enemyAttack');
+    this.say(`${foe.name} usa ${mv.name}.`, 0.1);
+    audio.sfx('enemyAttack');
+
+    if (mv.power > 0 && mv.anim !== 'cast') {
+      this.foeActor.play('run', { fade: 0.08 });
+      await this.move(this.foeActor, this.heroHome.x + this.side * 1.1, 0.3);
+      await this.foeActor.once('attack', null, 1.15);
+      this.foeActor.play('run', { fade: 0.1 });
+      this.move(this.foeActor, this.foeHome.x, 0.35).then(() => this.foeActor.play('combat'));
+    } else {
+      await this.foeActor.once(mv.anim || 'taunt', 'combat');
+      if (mv.power > 0) await this.darkBolt();
+    }
 
     if (mv.effect === 'raiseAtk') {
       foe.atkMod = Math.min(6, foe.atkMod + 2);
-      this.say(`¡El ataque de ${foe.name} aumenta!`);
+      await this.say(`¡El ataque de ${foe.name} aumenta!`, 0.6);
     }
     if (mv.effect === 'heal') {
       const amount = Math.round(foe.maxHp * 0.25);
       foe.hp = Math.min(foe.maxHp, foe.hp + amount);
-      this.play('foeHeal', 0.5, 'heal');
-      this.call(() => { this.foeHpTarget = foe.hp; });
-      this.say(`${foe.name} recupera vida.`);
+      audio.sfx('heal');
+      this.world.burst(this.foeActor.group.position.clone().add(new THREE.Vector3(0, 1, 0)), '#7dffb0', 30);
+      this.pop(`+${amount}`, this.foeActor, '#7dffb0', true);
+      this.refresh();
+      await this.say(`${foe.name} recupera vida.`, 0.6);
     }
 
     if (mv.power > 0) {
       if (Math.random() < 0.1) {
-        this.play('none', 0.1, 'miss');
-        this.say('¡Kaelen esquiva el golpe!');
+        audio.sfx('miss');
+        this.hero.once('dodge', 'combat');
+        await this.say('¡Kaelen esquiva el golpe!', 0.6);
       } else {
         let dmg = this.calcDamage(mv.power, foe.atk + foe.atkMod, Math.max(0, h.def + this.pDefMod), 1);
         if (this.shield) dmg = Math.ceil(dmg / 2);
         h.hp = Math.max(0, h.hp - dmg);
         this.damageTaken += dmg;
-        this.play('playerHit', 0.5, 'hit');
-        this.call(() => { this.pHpTarget = h.hp; this.shake = 0.3; });
-        this.say(this.shield ? `La Égida protege. Recibes ${dmg} de daño.` : `Kaelen recibe ${dmg} de daño.`);
+        audio.sfx('hit');
+        this.shake = 0.35;
+        this.pop(`-${dmg}`, this.hero, '#ff8a7a', dmg >= 10);
+        this.refresh();
+        if (h.hp > 0) await this.hero.once('hit', 'combat');
+        await this.say(this.shield ? `La Égida protege. Recibes ${dmg} de daño.` : `Kaelen recibe ${dmg} de daño.`, 0.6);
         if (mv.effect === 'drain' && foe.hp > 0) {
-          foe.hp = Math.min(foe.maxHp, foe.hp + Math.ceil(dmg / 2));
-          this.call(() => { this.foeHpTarget = foe.hp; });
-          this.say(`${foe.name} absorbe tu energía.`);
+          const back = Math.ceil(dmg / 2);
+          foe.hp = Math.min(foe.maxHp, foe.hp + back);
+          this.pop(`+${back}`, this.foeActor, '#ff9a6a');
+          this.refresh();
+          await this.say(`${foe.name} absorbe tu energía.`, 0.6);
         }
       }
     }
-    if (mv.effect === 'lowerDef') {
-      this.pDefMod = Math.max(-3, this.pDefMod - 1);
-      this.say('La defensa de Kaelen baja.');
+    if (mv.effect === 'lowerDef') { this.pDefMod = Math.max(-3, this.pDefMod - 1); this.refresh(); await this.say('La defensa de Kaelen baja.', 0.6); }
+    if (mv.effect === 'lowerAtk') { this.pAtkMod = Math.max(-4, this.pAtkMod - 2); this.refresh(); await this.say('El ataque de Kaelen baja.', 0.6); }
+    if (this.shield) {
+      this.shield = false;
+      this.tween(0.4, (k) => { this.shieldMesh.material.opacity = 0.28 * (1 - k); });
+      this.refresh();
     }
-    if (mv.effect === 'lowerAtk') {
-      this.pAtkMod = Math.max(-4, this.pAtkMod - 2);
-      this.say('El ataque de Kaelen baja.');
-    }
-    this.shield = false;
 
-    if (h.hp <= 0) { this.defeat(); return true; }
+    if (h.hp <= 0) { await this.defeat(); return true; }
     return false;
   }
 
-  endOfTurn() {
+  /** Quemaduras y recuperación de vigor. Devuelve true si el enemigo murió. */
+  async endOfTurn() {
     const foe = this.foe;
     if (foe.burn > 0) {
       const dmg = Math.max(2, Math.round(foe.maxHp * 0.06));
       foe.hp = Math.max(0, foe.hp - dmg);
       foe.burn--;
-      const stillBurning = foe.burn > 0;
-      this.play('foeHit', 0.4, 'fire');
-      this.call(() => { this.foeHpTarget = foe.hp; this.burnShown = stillBurning; });
-      this.say(`${foe.name} sufre por las quemaduras.`);
-      if (foe.hp <= 0) { this.victory(); return; }
+      this.game.audio.sfx('fire');
+      this.world.burst(this.foeActor.group.position.clone().add(new THREE.Vector3(0, 1, 0)), '#ff8a2a', 24);
+      this.pop(`-${dmg}`, this.foeActor, '#ff9a3a');
+      this.refresh();
+      await this.say(`${foe.name} sufre por las quemaduras.`, 0.6);
+      if (foe.hp <= 0) { await this.victory(); return true; }
     }
     this.vigor = Math.min(MAX_VIGOR, this.vigor + 1);
+    this.refresh();
+    return false;
   }
 
-  victory() {
+  async victory() {
     const g = this.game;
     const h = g.hunter;
     this.over = true;
-    this.play('foeFaint', 0.8, 'victory');
-    this.say(`¡${this.foe.name} ha sido derrotado!`);
+    g.audio.sfx('victory');
+    await this.foeActor.once('death');
+    this.world.burst(this.foeActor.group.position.clone().add(new THREE.Vector3(0, 0.6, 0)), this.data.model.eyes || '#d8d0ff', 40);
+    this.hero.play('cheer');
+    await this.say(`¡${this.foe.name} ha sido derrotado!`);
     let pts = g.score.enemyDefeated(this.data);
     if (this.damageTaken === 0) pts += g.score.add('FLAWLESS_BATTLE');
     h.coins += this.data.coins;
     g.stats.enemies++;
-    this.say(`+${pts} puntos y +${this.data.coins} monedas.`);
+    await this.say(`+${pts} puntos y +${this.data.coins} monedas.`);
     const ups = h.gainXp(this.data.xp);
-    this.say(`Kaelen gana ${this.data.xp} de experiencia.`);
+    await this.say(`Kaelen gana ${this.data.xp} de experiencia.`);
     if (ups > 0) {
-      this.call(() => { g.audio.sfx('levelUp'); this.pHpTarget = h.hp; });
-      this.say(`¡Kaelen sube al nivel ${h.level}! Más PV y ataque.`);
+      g.audio.sfx('levelUp');
+      this.pop('¡NIVEL!', this.hero, '#9fd3ff', true);
+      this.refresh();
+      await this.say(`¡Kaelen sube al nivel ${h.level}! Más PV y ataque.`);
     }
-    this.call(() => this.finish('win'));
+    this.finish('win');
   }
 
-  defeat() {
+  async defeat() {
     this.over = true;
-    this.play('playerFaint', 0.8, 'defeat');
-    this.say('Kaelen ha caído...');
-    this.call(() => this.finish('lose'));
+    this.game.audio.sfx('defeat');
+    await this.hero.once('death');
+    await this.say('Kaelen ha caído...', 1.2);
+    this.finish('lose');
   }
 
   finish(result) {
     this.game.audio.stopMusic();
+    if (result !== 'win') this.foeActor.play('idle');
     this.origin.onBattleEnd(result, this.enemyEntity);
   }
 
-  spawnAnimParticles(name) {
-    const add = (x, y, color, n, spread = 20, vy = -20) => {
-      for (let i = 0; i < n; i++) {
-        this.particles.push({
-          x: x + (Math.random() - 0.5) * spread, y: y + (Math.random() - 0.5) * spread,
-          vx: (Math.random() - 0.5) * 30, vy: vy - Math.random() * 30, t: 0.4 + Math.random() * 0.4, color,
-        });
-      }
-    };
-    if (name === 'fire') add(236, 54, '#ff7a1a', 30, 40, -40);
-    if (name === 'fire') add(236, 54, '#ffd34a', 15, 30, -30);
-    if (name === 'heal') add(80, 96, '#7dffb0', 20, 40, -30);
-    if (name === 'foeHeal') add(236, 54, '#7dffb0', 20, 40, -30);
-    if (name === 'shield') add(80, 96, '#9fd3ff', 20, 50, -10);
+  /* ---------- Efectos ---------- */
+  pop(text, actor, color, big = false) {
+    const h = (actor.spec.height || 1.6) * (actor.spec.scale || 1);
+    popup(this.engine, text, actor.group.position.clone().add(new THREE.Vector3(0, h + 0.2, 0)), color, big);
   }
 
-  /* ---------- Dibujo ---------- */
-  draw(ctx) {
-    const theme = THEMES[this.origin.level.theme];
-    ctx.save();
-    if (this.shake > 0) ctx.translate(Math.round((Math.random() - 0.5) * 4), Math.round((Math.random() - 0.5) * 4));
+  wait(s) { return new Promise((r) => this.tween(s, () => {}, r)); }
 
-    // Fondo
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, theme.battle[0]);
-    g.addColorStop(0.5, theme.battle[1]);
-    g.addColorStop(1, theme.battle[2]);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    for (let i = 0; i < 6; i++) ctx.fillRect(0, 40 + i * 16 + ((this.time * 6 + i * 5) % 8), W, 2);
+  /** Animación por tiempo: fn(k) con k de 0 a 1. */
+  tween(duration, fn, done = null) {
+    return new Promise((resolve) => {
+      this.tweens.push({ t: 0, duration, fn, resolve: () => { done?.(); resolve(); } });
+    });
+  }
 
-    // Plataformas
-    this.pad(ctx, 236, 80, 54, 11, theme);
-    this.pad(ctx, 80, 130, 66, 13, theme);
+  /** Desplaza un actor en X hasta targetX en "duration" segundos. */
+  move(actor, targetX, duration) {
+    const from = actor.group.position.x;
+    return this.tween(duration, (k) => {
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      actor.group.position.x = from + (targetX - from) * e;
+    });
+  }
 
-    this.drawFoe(ctx);
-    this.drawHunter(ctx);
+  /** Bola de fuego con luz propia que viaja del cazador al enemigo. */
+  async fireball() {
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), new THREE.MeshBasicMaterial({ color: '#fff1a8' })));
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 16), new THREE.MeshBasicMaterial({ color: '#ff6a1a', transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })));
+    const light = new THREE.PointLight('#ff7a2a', 30, 8);
+    g.add(light);
+    const from = this.heroHome.clone().add(new THREE.Vector3(this.side * 0.5, 1.2, 0.2));
+    const to = this.foeHome.clone().add(new THREE.Vector3(0, 1.0, 0));
+    this.engine.scene.add(g);
+    await this.tween(0.45, (k) => {
+      g.position.lerpVectors(from, to, k);
+      g.position.y += Math.sin(k * Math.PI) * 0.5;
+      if (Math.random() < 0.5) this.world.burst(g.position.clone(), '#ff8a2a', 2);
+    });
+    this.engine.scene.remove(g);
+    g.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
+    this.world.burst(to, '#ffb347', 40);
+  }
 
-    for (const p of this.particles) {
-      ctx.fillStyle = p.color;
-      ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+  /** Proyectil oscuro de los hechiceros. */
+  async darkBolt() {
+    const color = this.data.model.eyes || '#b07aff';
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), new THREE.MeshBasicMaterial({ color }));
+    const light = new THREE.PointLight(color, 20, 6);
+    orb.add(light);
+    const from = this.foeHome.clone().add(new THREE.Vector3(-this.side * 0.5, 1.3, 0.2));
+    const to = this.heroHome.clone().add(new THREE.Vector3(0, 1.0, 0));
+    this.engine.scene.add(orb);
+    await this.tween(0.45, (k) => { orb.position.lerpVectors(from, to, k); orb.position.y += Math.sin(k * Math.PI) * 0.4; });
+    this.engine.scene.remove(orb);
+    orb.geometry.dispose();
+    orb.material.dispose();
+    this.world.burst(to, color, 30);
+  }
+
+  /* ---------- Cada cuadro ---------- */
+  frame(dt) {
+    for (const tw of this.tweens) {
+      tw.t += dt;
+      const k = Math.min(1, tw.t / tw.duration);
+      tw.fn(k);
+      if (k >= 1) tw.resolve();
     }
-
-    if (this.introT >= 1) {
-      this.drawFoeBox(ctx);
-      this.drawHunterBox(ctx);
+    this.tweens = this.tweens.filter((tw) => tw.t < tw.duration);
+    this.hero.update(dt);
+    this.foeActor.update(dt);
+    this.shieldMesh.position.copy(this.hero.group.position).add(new THREE.Vector3(0, 0.85, 0));
+    const cam = this.engine.camera;
+    cam.position.lerp(this.camPos, Math.min(1, dt * 2.5));
+    const look = this.camLook.clone();
+    if (this.shake > 0) {
+      this.shake -= dt;
+      look.x += (Math.random() - 0.5) * 0.12;
+      look.y += (Math.random() - 0.5) * 0.12;
     }
-    ctx.restore();
-    this.drawTextBox(ctx);
+    cam.lookAt(look);
+    this.world.update(dt, this.center);
   }
-
-  pad(ctx, cx, cy, rx, ry, theme) {
-    ctx.fillStyle = theme.padEdge;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = theme.pad;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy - 2, rx - 4, ry - 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  animProgress(name) {
-    return this.anim && this.anim.name === name ? this.anim.t / this.anim.dur : null;
-  }
-
-  drawFoe(ctx) {
-    const img = Sprites.enemy(this.foe.kind);
-    const scale = this.foe.boss ? 4 : 3;
-    let x = 236 - (img.width * scale) / 2;
-    let y = 82 - img.height * scale;
-    let alpha = 1;
-    x += (1 - this.introT) * -260; // entra desde la izquierda
-
-    const lunge = this.animProgress('foeLunge');
-    if (lunge !== null) { x -= Math.sin(lunge * Math.PI) * 16; y += Math.sin(lunge * Math.PI) * 6; }
-    const hit = this.animProgress('foeHit');
-    if (hit !== null) { x += Math.sin(hit * 40) * 3; if (Math.floor(hit * 10) % 2) return; }
-    const faint = this.animProgress('foeFaint');
-    if (faint !== null) { y += faint * 30; alpha = 1 - faint; }
-    if (this.over && !this.anim && this.cur?.type !== 'anim' && this.foe.hp <= 0) return;
-    if (this.foe.kind === 'espectro' || this.foe.kind === 'senor') y += Math.sin(this.time * 2.5) * 3;
-
-    // El monstruo mira hacia el cazador (izquierda)
-    drawSprite(ctx, img, x, y, { scale, flip: true, alpha });
-  }
-
-  drawHunter(ctx) {
-    const img = Sprites.hunterBack(this.game.hunter.armor);
-    let x = 48;
-    let y = 68;
-    let alpha = 1;
-    x += (1 - this.introT) * 260; // entra desde la derecha
-    const lunge = this.animProgress('playerLunge');
-    if (lunge !== null) { x += Math.sin(lunge * Math.PI) * 24; y -= Math.sin(lunge * Math.PI) * 10; }
-    const hit = this.animProgress('playerHit');
-    if (hit !== null && Math.floor(hit * 10) % 2) return;
-    const faint = this.animProgress('playerFaint');
-    if (faint !== null) { y += faint * 40; alpha = 1 - faint; }
-    if (this.over && this.game.hunter.hp <= 0 && faint === null) return;
-    drawSprite(ctx, img, x, y, { scale: 4, alpha });
-
-    if (this.shield || this.animProgress('shield') !== null) {
-      ctx.strokeStyle = `rgba(159,211,255,${0.5 + Math.sin(this.time * 6) * 0.2})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.ellipse(x + 32, y + 30, 40, 34, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-
-  drawFoeBox(ctx) {
-    const f = this.foe;
-    box(ctx, 8, 10, 152, 34);
-    text(ctx, f.name.toUpperCase(), 14, 16, { color: '#303030', shadow: false, size: f.name.length > 12 ? 6 : 8 });
-    text(ctx, `Nv${f.level}`, 154, 16, { color: '#303030', shadow: false, align: 'right', size: 6 });
-    text(ctx, 'PV', 14, 30, { color: '#c27c0e', shadow: false, size: 6 });
-    hpBar(ctx, 30, 31, 120, 4, this.foeHpShown / f.maxHp);
-    if (this.burnShown) text(ctx, 'QUEMADO', 14, 38, { color: '#d9480f', shadow: false, size: 6 });
-  }
-
-  drawHunterBox(ctx) {
-    const h = this.game.hunter;
-    box(ctx, 170, 90, 144, 40);
-    text(ctx, h.name.toUpperCase(), 177, 96, { color: '#303030', shadow: false });
-    text(ctx, `Nv${h.level}`, 308, 97, { color: '#303030', shadow: false, align: 'right', size: 6 });
-    text(ctx, 'PV', 177, 109, { color: '#c27c0e', shadow: false, size: 6 });
-    hpBar(ctx, 193, 110, 112, 4, this.pHpShown / h.maxHp);
-    text(ctx, `${Math.ceil(this.pHpShown)}/${h.maxHp}`, 177, 119, { color: '#303030', shadow: false, size: 6 });
-    text(ctx, 'VIGOR', 250, 119, { color: '#3a5a8c', shadow: false, size: 6 });
-    for (let i = 0; i < MAX_VIGOR; i++) {
-      ctx.fillStyle = i < this.vigor ? '#3a7bd5' : '#c9c9c9';
-      ctx.fillRect(282 + i * 8, 119, 6, 6);
-    }
-  }
-
-  drawTextBox(ctx) {
-    const dark = '#303030';
-    if (this.mode === 'menu' || this.mode === 'sub') {
-      box(ctx, 4, 132, 170, 42);
-      box(ctx, 174, 132, 142, 42);
-      if (this.mode === 'menu') {
-        const lines = wrap(ctx, `¿Qué hará ${this.game.hunter.name}?`, 150);
-        lines.forEach((l, i) => text(ctx, l, 12, 142 + i * 12, { color: dark, shadow: false }));
-        MENU.forEach((label, i) => {
-          const x = 186 + (i % 2) * 72;
-          const y = 142 + Math.floor(i / 2) * 14;
-          const extra = i === 2 ? ` ${this.game.hunter.potions}` : '';
-          text(ctx, label + extra, x, y, { color: dark, shadow: false, size: 7 });
-          if (i === this.menuIndex) cursor(ctx, x - 9, y);
-        });
-      } else {
-        const keys = SUBMENUS[this.subKind];
-        const mv = PLAYER_MOVES[keys[this.subIndex]];
-        const lines = wrap(ctx, mv.hint, 150, 7);
-        lines.forEach((l, i) => text(ctx, l, 12, 140 + i * 11, { color: dark, shadow: false, size: 7 }));
-        text(ctx, mv.cost ? `Vigor: ${mv.cost}` : 'Sin costo', 12, 162, { color: '#3a5a8c', shadow: false, size: 6 });
-        keys.forEach((k, i) => {
-          const m = PLAYER_MOVES[k];
-          const y = 142 + i * 14;
-          const disabled = this.vigor < m.cost;
-          text(ctx, m.short, 192, y, { color: disabled ? '#999' : dark, shadow: false, size: 7 });
-          if (i === this.subIndex) cursor(ctx, 183, y);
-        });
-        text(ctx, 'ESC: volver', 248, 164, { color: '#777', shadow: false, size: 5 });
-      }
-      return;
-    }
-
-    box(ctx, 4, 132, 312, 42);
-    const shown = this.msg.slice(0, Math.floor(this.chars));
-    const lines = wrap(ctx, shown, 292);
-    lines.slice(0, 3).forEach((l, i) => text(ctx, l, 12, 141 + i * 11, { color: dark, shadow: false }));
-    if (this.cur?.type === 'msg' && this.chars >= this.msg.length && Math.floor(this.time * 3) % 2) {
-      ctx.fillStyle = '#c0392b';
-      ctx.fillRect(300, 163, 6, 2);
-      ctx.fillRect(301, 165, 4, 1);
-      ctx.fillRect(302, 166, 2, 1);
-    }
-  }
-}
-
-/** Cursor triangular de selección (pixel art). */
-export function cursor(ctx, x, y) {
-  ctx.fillStyle = '#c0392b';
-  for (let i = 0; i < 4; i++) ctx.fillRect(x + i, y + i, 1, 7 - i * 2);
 }

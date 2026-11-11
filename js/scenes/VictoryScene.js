@@ -1,10 +1,10 @@
-import { W, H } from '../core/Game.js';
-import { text } from '../gfx/draw.js';
+import { screen, clearScreen, escapeHtml } from '../ui/ui.js';
 import { ScoreSystem, POINTS } from '../systems/ScoreSystem.js';
+import { getBackdrop } from './Backdrop.js';
 import { CreditsScene } from './CreditsScene.js';
 import { TitleScene } from './TitleScene.js';
 
-/** VictoryScene: resumen final de la partida al vencer al último jefe. */
+/** VictoryScene: resumen final de la partida al vencer al último guardián. */
 export class VictoryScene {
   constructor(game) {
     this.game = game;
@@ -14,37 +14,36 @@ export class VictoryScene {
   }
 
   enter() {
+    this.backdrop = getBackdrop(this.game, 0);
+    this.backdrop.hero.play('cheer');
     this.game.audio.playMusic('title');
     this.game.audio.sfx('clear');
+    const g = this.game;
+    const rows = [
+      ['Enemigos derrotados', g.stats.enemies],
+      ['Monedas', g.hunter.coins],
+      ['Nivel del cazador', g.hunter.level],
+      ['Vestimenta', g.hunter.armorName],
+      [`Bono de vidas (${g.lives} × ${POINTS.LIFE_BONUS})`, `+${this.lifeBonus}`],
+    ].map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
+    screen(`<div class="screen dim">
+      <h1>¡Velmora está a salvo!</h1>
+      <div class="panel card" style="width:min(560px,92vw)"><table>${rows}<tr class="total"><td>PUNTAJE FINAL</td><td>${g.score.total}</td></tr></table></div>
+      ${this.record ? '<p class="sub" style="color:#8dffb0;margin-top:12px">¡Nuevo récord!</p>' : ''}
+      <p class="prompt">Enter: créditos</p>
+    </div>`);
   }
+
+  exit() { clearScreen(); }
 
   update(dt) {
     this.time += dt;
-    if (this.time > 1.5 && this.game.input.pressed('confirm')) {
+    if (this.time > 1.2 && this.game.input.pressed('confirm')) {
       const g = this.game;
       g.audio.sfx('select');
       g.changeScene(new CreditsScene(g, () => { g.newRun(); g.changeScene(new TitleScene(g)); }));
     }
   }
 
-  draw(ctx) {
-    const g = this.game;
-    ctx.fillStyle = '#0e1016';
-    ctx.fillRect(0, 0, W, H);
-    text(ctx, '¡VELMORA ESTÁ A SALVO!', W / 2, 18, { align: 'center', size: 10, color: '#c9a227' });
-    const rows = [
-      ['Monstruos derrotados', g.stats.enemies],
-      ['Monedas', g.hunter.coins],
-      ['Nivel del cazador', g.hunter.level],
-      ['Vestimenta', g.hunter.armorName],
-      [`Bono vidas (${g.lives} x ${POINTS.LIFE_BONUS})`, `+${this.lifeBonus}`],
-    ];
-    rows.forEach(([k, v], i) => {
-      text(ctx, k, 30, 48 + i * 14, { size: 7 });
-      text(ctx, String(v), W - 30, 48 + i * 14, { size: 7, align: 'right', color: '#9fd3ff' });
-    });
-    text(ctx, `PUNTAJE FINAL: ${g.score.total}`, W / 2, 128, { align: 'center', color: '#ffd34a' });
-    if (this.record) text(ctx, '¡Nuevo récord!', W / 2, 142, { align: 'center', color: '#7dffb0', size: 7 });
-    if (this.time > 1.5 && Math.floor(this.time * 2) % 2) text(ctx, 'ENTER: créditos', W / 2, 158, { align: 'center', size: 6 });
-  }
+  frame(dt) { this.backdrop.frame(dt); }
 }

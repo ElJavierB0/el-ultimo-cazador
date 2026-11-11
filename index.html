@@ -4,20 +4,65 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>El Último Cazador</title>
-  <meta name="description" content="Juego web indie de plataformas con batallas por turnos. Un cazador de monstruos contra la niebla de Velmora.">
-  <meta name="theme-color" content="#0b0b10">
+  <meta name="description" content="Juego web indie 3D de plataformas con batallas por turnos. Un cazador de monstruos contra la ceniza que levanta a los muertos.">
+  <meta name="theme-color" content="#07080f">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
-  <main id="stage">
-    <canvas id="game" width="320" height="176" aria-label="El Último Cazador">
-      Tu navegador no soporta canvas.
-    </canvas>
-  </main>
+  <div id="stage"></div>
+
+  <div id="ui">
+    <!-- HUD de exploración -->
+    <div id="hud" class="hidden">
+      <div class="panel hud-left">
+        <div class="row"><span id="hud-hearts" class="hearts"></span><span id="hud-medal" class="medal" title="Medallón"></span><span id="hud-level" class="lvl"></span></div>
+        <div class="row"><span class="label">PV</span><div class="bar"><i id="hud-hp"></i></div><span id="hud-hpnum" class="num"></span></div>
+      </div>
+      <div class="panel hud-right">
+        <div><span class="label">PUNTAJE</span><div id="hud-score" class="score">000000</div></div>
+        <div class="inv"><span class="coin"></span><b id="hud-coins">0</b><span class="potion"></span><b id="hud-potions">0</b></div>
+      </div>
+    </div>
+
+    <div id="banner" class="hidden"><h1 id="banner-title"></h1><p id="banner-sub"></p></div>
+    <div id="toast" class="panel hidden"></div>
+
+    <!-- Interfaz de batalla -->
+    <div id="battle" class="hidden">
+      <div class="panel bpanel left">
+        <h2>KAELEN <small id="b-hero-lvl"></small></h2>
+        <div class="row"><span class="label">PV</span><div class="bar"><i id="b-hero-hp"></i></div><span id="b-hero-num" class="num"></span></div>
+        <div class="row"><span class="label vigor">VIGOR</span><span id="b-vigor" class="pips"></span><span id="b-hero-chips" class="chips"></span></div>
+      </div>
+      <div class="panel bpanel right">
+        <h2 id="b-foe-name"></h2>
+        <div class="row"><span class="label">PV</span><div class="bar foe"><i id="b-foe-hp"></i></div><small id="b-foe-lvl"></small></div>
+        <div class="row chips" id="b-foe-chips"></div>
+      </div>
+      <div class="bbox">
+        <div id="b-msg" class="panel msg"></div>
+        <div id="b-menu" class="panel menu hidden"></div>
+      </div>
+    </div>
+
+    <!-- Pantallas completas (título, historia, resultados...) -->
+    <div id="screen" class="hidden"></div>
+    <div id="pops"></div>
+    <div id="fade"></div>
+    <div id="loading"><div class="logo">EL ÚLTIMO <b>CAZADOR</b></div><div class="bar load"><i id="load-bar"></i></div><p id="load-text">Cargando…</p></div>
+  </div>
 
   <!-- Controles táctiles (solo se muestran en celulares y tablets) -->
   <div id="touch" aria-hidden="true">

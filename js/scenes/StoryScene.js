@@ -1,39 +1,59 @@
-import { W, H } from '../core/Game.js';
-import { text, wrap } from '../gfx/draw.js';
+import { screen, clearScreen, $, escapeHtml } from '../ui/ui.js';
+import { getBackdrop } from './Backdrop.js';
 
 /**
- * StoryScene: muestra páginas del guion con efecto de máquina de escribir.
- * ENTER avanza (o completa el texto); ESC salta toda la historia.
+ * StoryScene: páginas del guion con efecto de máquina de escribir sobre el fondo 3D.
+ * Enter avanza (o completa el texto); Esc salta toda la historia.
  */
 export class StoryScene {
-  constructor(game, pages, onDone, { music = 'title', title = '' } = {}) {
+  constructor(game, pages, onDone, { music = 'title', title = '', backdropLevel = 0 } = {}) {
     this.game = game;
     this.pages = pages;
     this.onDone = onDone;
     this.music = music;
     this.title = title;
+    this.backdropLevel = backdropLevel;
     this.page = 0;
     this.chars = 0;
-    this.time = 0;
   }
 
-  enter() { this.game.audio.playMusic(this.music); }
+  enter() {
+    this.backdrop = getBackdrop(this.game, this.backdropLevel);
+    this.game.audio.playMusic(this.music);
+    screen(`<div class="screen dim">
+        <h1>${escapeHtml(this.title)}</h1>
+        <div class="panel card"><p id="story-text" class="story"></p></div>
+        <div class="dots">${this.pages.map((_, i) => `<i data-i="${i}"></i>`).join('')}</div>
+        <p id="story-prompt" class="prompt" style="visibility:hidden">Enter ▸</p>
+        <div class="foot"><span>Esc: saltar</span><span></span></div>
+      </div>`);
+    this.renderDots();
+  }
+
+  exit() { clearScreen(); }
+
+  renderDots() {
+    document.querySelectorAll('.dots i').forEach((d, i) => d.classList.toggle('on', i === this.page));
+  }
 
   update(dt) {
     const input = this.game.input;
-    this.time += dt;
-    const current = this.pages[this.page];
     if (input.pressed('back')) { this.done(); return; }
+    const current = this.pages[this.page];
     if (this.chars < current.length) {
-      this.chars += dt * 40;
+      this.chars = Math.min(current.length, this.chars + dt * 45);
       if (input.pressed('confirm')) this.chars = current.length;
+      $('story-text').textContent = current.slice(0, Math.floor(this.chars));
+      $('story-prompt').style.visibility = this.chars >= current.length ? 'visible' : 'hidden';
       return;
     }
     if (input.pressed('confirm')) {
       this.game.audio.sfx('select');
       this.page++;
       this.chars = 0;
-      if (this.page >= this.pages.length) this.done();
+      if (this.page >= this.pages.length) { this.done(); return; }
+      this.renderDots();
+      $('story-prompt').style.visibility = 'hidden';
     }
   }
 
@@ -43,23 +63,5 @@ export class StoryScene {
     this.onDone();
   }
 
-  draw(ctx) {
-    ctx.fillStyle = '#0b0b10';
-    ctx.fillRect(0, 0, W, H);
-    // Ceniza que cae
-    ctx.fillStyle = 'rgba(200,200,200,0.25)';
-    for (let i = 0; i < 30; i++) {
-      const x = (i * 53 + Math.sin(this.time + i) * 10) % W;
-      const y = (i * 37 + this.time * (10 + (i % 5) * 4)) % H;
-      ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
-    }
-    if (this.title) text(ctx, this.title, W / 2, 18, { align: 'center', color: '#c9a227' });
-    const page = this.pages[Math.min(this.page, this.pages.length - 1)];
-    const lines = wrap(ctx, page.slice(0, Math.floor(this.chars)), W - 48);
-    lines.forEach((l, i) => text(ctx, l, 24, 52 + i * 14));
-    if (this.chars >= page.length && Math.floor(this.time * 2) % 2) {
-      text(ctx, 'ENTER', W - 24, H - 20, { align: 'right', color: '#9aa3ad' });
-    }
-    text(ctx, 'ESC: saltar', 24, H - 20, { color: '#555', size: 6 });
-  }
+  frame(dt) { this.backdrop.frame(dt); }
 }

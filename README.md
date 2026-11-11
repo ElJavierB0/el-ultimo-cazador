@@ -1,50 +1,49 @@
 # 🗡️ El Último Cazador
 
-> *Plata para las bestias. Acero para los hombres.*
+> *Plata para los muertos. Acero para los hombres.*
 
-Juego web indie minimalista hecho con **JavaScript puro** (sin motores ni librerías): exploración tipo **plataformas 2D** y **batallas por turnos** al tocar a un monstruo. Todo el pixel art y el audio se generan con código.
+Juego web indie en **3D** hecho con **JavaScript** y **Three.js**: exploración tipo **plataformas de desplazamiento lateral** y **batallas por turnos** con cámara cinematográfica al tocar a un enemigo. Ambientación de fantasía oscura: luna, niebla, hogueras, no-muertos y caballeros corrompidos por la ceniza.
 
 | | |
 |---|---|
 | 🎮 **Jugar en línea** | *Próximamente (subdominio en Hostinger)* |
 | 📦 **Repositorio** | https://github.com/ElJavierB0/el-ultimo-cazador |
 | 📋 **Tablero de tareas** | GitHub Projects → pestaña *Projects* del repositorio |
-| 📄 **Licencia** | [MIT](LICENSE): código libre |
+| 📄 **Licencia** | [MIT](LICENSE): código libre · modelos 3D CC0 |
 
 ---
 
 ## 📌 Propuesta
 
 ### Concepto
-Hace un siglo, la **Orden del Cuervo** protegía el reino de Velmora de las bestias que nacen de la niebla. La orden cayó y solo queda uno: **Kaelen, el último cazador**. Una ceniza negra cae desde el castillo del norte y los monstruos volvieron a los caminos. El jugador recorre tres regiones, combate monstruos por turnos y derrota a los tres guardianes para liberar al reino.
+Hace un siglo, la **Orden del Cuervo** protegía el reino de Velmora de las bestias que nacen de la niebla. La orden cayó y solo queda uno: **Kaelen, el último cazador**. Una ceniza negra cae desde el castillo del norte: donde toca, los muertos se levantan y los hombres se corrompen. El jugador recorre tres regiones, combate por turnos y derrota a los tres guardianes para liberar al reino.
 
 ### Ficha
 | Elemento | Descripción |
 |---|---|
-| **Género** | Plataformas 2D + RPG por turnos (híbrido) |
-| **Estilo** | Pixel art minimalista, fantasía oscura |
-| **Público objetivo** | Jugadores de 12 años en adelante, casuales y fans de lo retro. Partidas de 10 a 20 minutos |
+| **Género** | Plataformas 2.5D (3D con movimiento lateral) + RPG por turnos |
+| **Estilo** | 3D estilizado de fantasía oscura: iluminación nocturna, sombras, niebla, bloom y partículas |
+| **Público objetivo** | Jugadores de 12 años en adelante, casuales. Partidas de 10 a 20 minutos |
 | **Plataforma** | Web (escritorio y celular, con controles táctiles) |
-| **Tecnología** | HTML5 Canvas, JavaScript ES Modules, Web Audio API |
-| **Inspiración** | Plataformas clásicos de 8/16 bits y combates por turnos de los RPG de bolsillo, ambientado en una fantasía oscura de cazadores de monstruos |
+| **Tecnología** | JavaScript (ES Modules), Three.js (WebGL), HTML/CSS para la interfaz, Web Audio API |
+| **Inspiración** | Plataformas clásicos y combates por turnos de los RPG, en un mundo oscuro de cazadores de monstruos |
 
 ### Mecánicas principales
-1. **Exploración (plataformas):** correr, saltar con salto variable, recoger monedas y pociones, y encender hogueras (puntos de control que curan).
-2. **Batalla por turnos:** al tocar a un monstruo cambia la pantalla a un combate con menú:
-   - **ESPADA → Acero** (eficaz contra humanos) o **Plata** (eficaz contra monstruos y espectros).
-   - **SEÑAL → Ascua** (fuego que ignora defensa y quema) o **Égida** (escudo que reduce el daño a la mitad). Las señales gastan **vigor** (máximo 3, se recupera 1 por turno).
-   - **POCIÓN:** cura el 50 % de los PV.
-   - **HUIR:** 70 % de probabilidad (no funciona contra jefes).
-3. **Progresión:** experiencia → nivel del cazador (+PV, +ataque). Al terminar cada nivel se desbloquea una **vestimenta** nueva (+defensa).
-4. **Medallón:** el ícono del HUD vibra cuando hay un monstruo cerca y en batalla indica su tipo.
-5. **Vidas:** 3 vidas. Se pierde una al caer al vacío o al agua, o al ser derrotado en batalla. Reapareces en la última hoguera.
+1. **Exploración:** correr, saltar con salto variable, recoger monedas y pociones, y encender hogueras (puntos de control que curan).
+2. **Batalla por turnos:** al tocar a un enemigo, la cámara pasa a una toma cinematográfica frente a frente:
+   - **ESPADA → Acero** (eficaz contra humanos) o **Plata** (eficaz contra no-muertos y criaturas arcanas).
+   - **SEÑAL → Ascua** (bola de fuego que ignora defensa y quema) o **Égida** (escudo que reduce el daño a la mitad). Las señales gastan **vigor** (máximo 3, se recupera 1 por turno).
+   - **POCIÓN:** cura el 50 % de los PV. **HUIR:** 70 % de probabilidad (no funciona contra guardianes).
+3. **Progresión:** experiencia → nivel del cazador (+PV, +ataque). Cada nivel completado desbloquea una **vestimenta** (+defensa y nuevos colores del cazador).
+4. **Medallón:** vibra cuando hay un enemigo cerca y en batalla indica su tipo.
+5. **Vidas:** 3. Se pierde una al caer al vacío o al agua, o al ser derrotado. Reapareces en la última hoguera.
 
-### Niveles
-| # | Nivel | Enemigos | Jefe | Música |
+### Niveles y enemigos (ninguno se repite)
+| # | Nivel | Enemigos | Guardián | Música |
 |---|---|---|---|---|
-| 1 | Bosque de Velmora | Bandido, Lobo | **Huargo Alfa** | Tema del bosque (La menor) |
-| 2 | Pantano de Bruma | Lodoso, Bandido, Espectro | **Bruja del Pantano** | Tema del pantano (Re menor, lento) |
-| 3 | Castillo de Ceniza | Bandido, Lodoso, Espectro | **Señor de la Ceniza** | Tema del castillo (Mi frigio) |
+| 1 | Bosque de Velmora | Bandido, Saqueador | **Caballero Caído** | Tema del bosque (La menor) |
+| 2 | Pantano de Bruma | Esqueleto Errante, Asesino Óseo | **Bruja del Pantano** | Tema del pantano (Re menor, lento) |
+| 3 | Castillo de Ceniza | Hechicero Esquelético | **Señor de la Ceniza** | Tema del castillo (Mi frigio) |
 
 ### Puntaje (cálculo por eventos)
 | Evento | Puntos |
@@ -54,7 +53,7 @@ Hace un siglo, la **Orden del Cuervo** protegía el reino de Velmora de las best
 | Hoguera encendida | +50 |
 | Golpe certero (arma correcta) | +10 |
 | Golpe crítico | +15 |
-| Monstruo derrotado | +100 a +200 (jefes: +1000 / +1500 / +2500) |
+| Enemigo derrotado | +100 a +220 (guardianes: +1000 / +1500 / +2500) |
 | Batalla sin recibir daño | +50 |
 | Nivel completado | +500 |
 | Bono de tiempo | (240 − segundos) × 5 |
@@ -72,7 +71,7 @@ El récord se guarda en el navegador (`localStorage`).
 |---|---|---|
 | Moverse | ← → / A D | Cruceta |
 | Saltar | Espacio / ↑ / W | ▲ |
-| Confirmar | Enter / Z | A |
+| Confirmar | Enter / Z | A (o tocar el botón del menú) |
 | Regresar | Esc / X | B |
 | Pausa | P / Esc | II |
 | Sonido on/off | M | — |
@@ -82,32 +81,34 @@ El récord se guarda en el navegador (`localStorage`).
 ## 🧱 Estructura y arquitectura (POO)
 
 ```
-├── index.html            # Página del juego y controles táctiles
-├── css/style.css         # Escalado pixel-perfect y controles
-├── assets/icon.svg       # Ícono
+├── index.html              # Página, interfaz HTML (HUD, batalla, pantallas) e importmap de Three.js
+├── css/style.css           # Estilo de la interfaz (paneles de fantasía oscura) y controles táctiles
+├── assets/models/          # Modelos 3D optimizados (.glb): personajes y escenografía (KayKit, CC0)
 └── js/
-    ├── main.js           # Punto de entrada
-    ├── core/             # Game (game loop), Input, AudioManager
-    ├── entities/         # Entity → Player, Enemy (herencia)
-    ├── world/Level.js    # Mapa de tiles, colisiones y objetos
-    ├── systems/          # ScoreSystem (puntaje), Hunter (estadísticas)
-    ├── scenes/           # Title, Story, Platform, Battle, LevelClear, GameOver, Victory, Credits, HowTo
-    ├── gfx/              # Sprites (pixel art en texto) y utilidades de dibujo
-    └── data/             # Niveles, bestiario, historia y créditos
+    ├── main.js             # Carga modelos y arranca el juego
+    ├── core/               # Game (bucle y escenas), Input (teclado/táctil), AudioManager (música y efectos)
+    ├── three/              # Engine (render + bloom), assets (carga y paletas oscuras), Actor (animaciones)
+    ├── world/              # Level (datos y colisiones) y World3D (construye el escenario 3D)
+    ├── entities/           # Entity → Player, Enemy (física y comportamiento)
+    ├── systems/            # ScoreSystem (puntaje), Hunter (estadísticas del cazador)
+    ├── scenes/             # Title, Story, Platform, Battle, LevelClear, GameOver, Victory, Credits, HowTo
+    ├── ui/                 # Utilidades de la interfaz HTML
+    └── data/               # Niveles, bestiario, historia y créditos
 ```
 
-- **Game loop de paso fijo** (60 actualizaciones/s) independiente de los FPS.
-- **Escenas** con interfaz común (`enter`, `update`, `draw`) y transiciones con fundido.
-- **Herencia:** `Entity` tiene la física y las colisiones AABB contra tiles; `Player` y `Enemy` extienden su comportamiento.
-- **Datos separados de la lógica:** niveles, monstruos y textos se editan en `js/data/` sin tocar el motor.
-- **Cola de pasos en batalla:** cada turno genera mensajes, animaciones y acciones que se reproducen en orden.
-- **Audio 100 % sintetizado:** secuenciador con planificación anticipada (Web Audio API), 6 pistas y más de 20 efectos.
+- **Lógica y render separados:** la física corre en 2D (colisiones AABB contra una cuadrícula) y los modelos 3D solo copian la posición. Así el juego es preciso como un plataformas clásico pero se ve en 3D.
+- **Bucle de paso fijo** (60 actualizaciones/s) para la lógica y render en cada cuadro.
+- **Herencia:** `Entity` → `Player` / `Enemy`. **Composición:** cada entidad tiene un `Actor` 3D con su `AnimationMixer`.
+- **Batalla asíncrona:** cada turno es una secuencia `async/await` (mensaje → animación → daño → turno enemigo).
+- **Paletas oscuras por código:** al cargar un modelo, su textura se recolorea (tono, saturación y luz) para que cada personaje tenga un aspecto propio.
+- **Modelos optimizados:** los personajes comparten animaciones y se comprimen con meshopt (de 36 MB a 3.5 MB).
+- **Audio 100 % sintetizado** con Web Audio API (6 pistas y más de 20 efectos).
 
 ---
 
 ## ▶️ Ejecutar localmente
 
-El juego usa módulos ES, así que necesita un servidor local (no funciona abriendo el archivo directamente):
+El juego usa módulos ES y carga modelos, así que necesita un servidor local (no funciona abriendo el archivo directamente):
 
 ```bash
 git clone https://github.com/ElJavierB0/el-ultimo-cazador.git
@@ -115,11 +116,11 @@ cd el-ultimo-cazador
 python3 -m http.server 8000     # o: npx serve
 ```
 
-Abre http://localhost:8000 en el navegador.
+Abre http://localhost:8000 en un navegador moderno (Chrome, Edge, Firefox o Safari).
 
 ## 🌐 Despliegue
 
-Es un sitio estático: basta con subir el contenido del repositorio a la carpeta pública del subdominio en Hostinger (`public_html/<subdominio>`). No requiere compilación ni base de datos.
+Es un sitio estático: basta con subir el contenido del repositorio a la carpeta pública del subdominio en Hostinger (`public_html/<subdominio>`). No requiere compilación ni base de datos. Three.js se carga desde su CDN.
 
 ---
 
@@ -146,5 +147,7 @@ Flujo Git: rama `main` estable y ramas `feature/<tarea>` por tarjeta, integradas
 
 ## 🙏 Créditos
 
-- Tipografía [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P) de CodeMan38 (SIL Open Font License).
-- Pixel art, música y efectos de sonido: originales, generados por código.
+- Modelos 3D y animaciones: [KayKit](https://kaylousberg.com) por Kay Lousberg, paquetes *Adventurers*, *Skeletons*, *Halloween Bits* y *Dungeon Remastered* ([CC0](https://creativecommons.org/publicdomain/zero/1.0/)). Recoloreados y optimizados para este juego.
+- Motor 3D: [Three.js](https://threejs.org) (MIT).
+- Tipografías [Cinzel](https://fonts.google.com/specimen/Cinzel) y [Nunito](https://fonts.google.com/specimen/Nunito) (SIL Open Font License).
+- Música y efectos de sonido: originales, sintetizados por código.
