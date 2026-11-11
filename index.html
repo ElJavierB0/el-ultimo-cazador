@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>El Último Cazador</title>
+  <meta name="description" content="Juego web indie de plataformas con batallas por turnos. Un cazador de monstruos contra la niebla de Velmora.">
+  <meta name="theme-color" content="#0b0b10">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main id="stage">
+    <canvas id="game" width="320" height="176" aria-label="El Último Cazador">
+      Tu navegador no soporta canvas.
+    </canvas>
+  </main>
+
+  <!-- Controles táctiles (solo se muestran en celulares y tablets) -->
+  <div id="touch" aria-hidden="true">
+    <div class="dpad">
+      <button data-action="up" class="up">▲</button>
+      <button data-action="left" class="left">◀</button>
+      <button data-action="right" class="right">▶</button>
+      <button data-action="down" class="down">▼</button>
+    </div>
+    <div class="actions">
+      <button data-action="pause" class="small">II</button>
+      <button data-action="back" class="b">B</button>
+      <button data-action="confirm" class="a">A</button>
+    </div>
+  </div>
+
+  <noscript>Este juego necesita JavaScript activado.</noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+:root {
+  --bg: #0b0b10;
+  --btn: rgba(255, 255, 255, 0.12);
+  --btn-active: rgba(201, 162, 39, 0.5);
+  --text: #f2efe6;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+#game {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+}
+
+/* ---------- Controles táctiles ---------- */
+#touch { display: none; }
+
+body.touch #stage {
+  height: calc(100% - 150px);
+}
+
+body.touch #touch {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 150px;
+  padding: 0 16px;
+}
+
+#touch button {
+  font-family: "Press Start 2P", monospace;
+  color: var(--text);
+  background: var(--btn);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  font-size: 14px;
+  touch-action: none;
+}
+
+#touch button.active { background: var(--btn-active); }
+
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(3, 44px);
+  gap: 2px;
+}
+.dpad .up { grid-column: 2; grid-row: 1; }
+.dpad .left { grid-column: 1; grid-row: 2; }
+.dpad .right { grid-column: 3; grid-row: 2; }
+.dpad .down { grid-column: 2; grid-row: 3; }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.actions .a, .actions .b {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+}
+.actions .a { background: rgba(192, 57, 43, 0.35); }
+.actions .small {
+  width: 40px;
+  height: 32px;
+  font-size: 10px;
+}
+
+/* En horizontal en celular, los controles se superponen a los costados */
+@media (orientation: landscape) and (max-height: 500px) {
+  body.touch #stage { height: 100%; }
+  body.touch #touch { height: 100%; pointer-events: none; }
+  body.touch #touch > * { pointer-events: auto; }
+}
