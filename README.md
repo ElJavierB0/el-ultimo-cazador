@@ -137,8 +137,7 @@ Es un sitio estático (sin compilación ni base de datos; Three.js se carga desd
 | Código completo y liberado | Este repositorio (licencia MIT) |
 | Juego disponible en línea | https://ultimo.loopsoftware.com.mx (Hostinger, en lugar de GitHub Pages) |
 | Audio (música y efectos) | `js/core/AudioManager.js`, sintetizado con Web Audio API |
-| Video corto explicativo del código | Video en YouTube + guion en [docs/guion-video.md](docs/guion-video.md) |
-| Explicación escrita del código | [docs/Explicacion-del-Codigo.docx](docs/Explicacion-del-Codigo.docx) |
+| Explicación del código | [docs/Explicacion-del-Codigo.docx](docs/Explicacion-del-Codigo.docx): archivo por archivo, con fragmentos del código |
 
 Flujo Git: rama `main` estable; cada cambio integrado a `main` se publica automáticamente en el sitio.
 
