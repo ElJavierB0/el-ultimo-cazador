@@ -6,7 +6,7 @@ Juego web indie en **3D** hecho con **JavaScript** y **Three.js**: exploración 
 
 | | |
 |---|---|
-| 🎮 **Jugar en línea** | *Próximamente (subdominio en Hostinger)* |
+| 🎮 **Jugar en línea** | **https://ultca.loopsoftware.com.mx** |
 | 📦 **Repositorio** | https://github.com/ElJavierB0/el-ultimo-cazador |
 | 📋 **Tablero de tareas** | GitHub Projects → pestaña *Projects* del repositorio |
 | 📄 **Licencia** | [MIT](LICENSE): código libre · modelos 3D CC0 |
@@ -120,7 +120,9 @@ Abre http://localhost:8000 en un navegador moderno (Chrome, Edge, Firefox o Safa
 
 ## 🌐 Despliegue
 
-Es un sitio estático: basta con subir el contenido del repositorio a la carpeta pública del subdominio en Hostinger (`public_html/<subdominio>`). No requiere compilación ni base de datos. Three.js se carga desde su CDN.
+El juego está publicado en **https://ultca.loopsoftware.com.mx** (subdominio en Hostinger).
+
+Es un sitio estático (sin compilación ni base de datos; Three.js se carga desde su CDN). Hostinger está conectado a este repositorio de GitHub: cada *push* o *Pull Request* integrado a `main` se despliega automáticamente en `public_html` del subdominio.
 
 ---
 
