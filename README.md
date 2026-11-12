@@ -6,7 +6,7 @@ Propuesta **individual** de juego web indie en **JavaScript**: exploración tipo
 
 | | |
 |---|---|
-| 🎮 **Jugar en línea** | **https://ultca.loopsoftware.com.mx** |
+| 🎮 **Jugar en línea** | **https://ultimo.loopsoftware.com.mx** |
 | 📦 **Repositorio** | https://github.com/ElJavierB0/el-ultimo-cazador |
 | 👤 **Autor** | Javier Antonio Romo Bernal ([@ElJavierB0](https://github.com/ElJavierB0)) |
 | 📖 **Explicación del código** | [docs/Explicacion-del-Codigo.docx](docs/Explicacion-del-Codigo.docx) |
@@ -123,7 +123,7 @@ Abre http://localhost:8000 en un navegador moderno (Chrome, Edge, Firefox o Safa
 
 ## 🌐 Despliegue
 
-El juego está publicado en **https://ultca.loopsoftware.com.mx** (subdominio en Hostinger).
+El juego está publicado en **https://ultimo.loopsoftware.com.mx** (subdominio en Hostinger).
 
 Es un sitio estático (sin compilación ni base de datos; Three.js se carga desde su CDN). Hostinger está conectado a este repositorio de GitHub: cada *push* o *Pull Request* integrado a `main` se despliega automáticamente en `public_html` del subdominio.
 
@@ -135,7 +135,7 @@ Es un sitio estático (sin compilación ni base de datos; Three.js se carga desd
 |---|---|
 | Propuesta del juego | Este README (sección **Propuesta**) |
 | Código completo y liberado | Este repositorio (licencia MIT) |
-| Juego disponible en línea | https://ultca.loopsoftware.com.mx (Hostinger, en lugar de GitHub Pages) |
+| Juego disponible en línea | https://ultimo.loopsoftware.com.mx (Hostinger, en lugar de GitHub Pages) |
 | Audio (música y efectos) | `js/core/AudioManager.js`, sintetizado con Web Audio API |
 | Video corto explicativo del código | Video en YouTube + guion en [docs/guion-video.md](docs/guion-video.md) |
 | Explicación escrita del código | [docs/Explicacion-del-Codigo.docx](docs/Explicacion-del-Codigo.docx) |
