@@ -1,15 +1,11 @@
 /**
  * Créditos del juego. [texto, tipo]  t = título, h = encabezado, '' = normal.
- * En la Actividad 3 se agregarán las fotos del equipo en esta pantalla.
  */
 export const CREDITS = [
   ['EL ÚLTIMO CAZADOR', 't'],
   ['', ''],
-  ['Diseño, programación y audio', 'h'],
+  ['Diseño, programación, audio y niveles', 'h'],
   ['Javier Antonio Romo Bernal', ''],
-  ['', ''],
-  ['Diseño de juego y documentación', 'h'],
-  ['Guadalupe', ''],
   ['', ''],
   ['Modelos 3D y animaciones', 'h'],
   ['KayKit · Kay Lousberg (CC0)', ''],

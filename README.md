@@ -2,14 +2,17 @@
 
 > *Plata para los muertos. Acero para los hombres.*
 
-Juego web indie en **3D** hecho con **JavaScript** y **Three.js**: exploración tipo **plataformas de desplazamiento lateral** y **batallas por turnos** con cámara cinematográfica al tocar a un enemigo. Ambientación de fantasía oscura: luna, niebla, hogueras, no-muertos y caballeros corrompidos por la ceniza.
+Propuesta **individual** de juego web indie en **JavaScript**: exploración tipo **plataformas de desplazamiento lateral** y **batallas por turnos** con cámara cinematográfica al tocar a un enemigo, en 3D con **Three.js**. Ambientación de fantasía oscura: luna, niebla, hogueras, no-muertos y caballeros corrompidos por la ceniza.
 
 | | |
 |---|---|
 | 🎮 **Jugar en línea** | **https://ultca.loopsoftware.com.mx** |
 | 📦 **Repositorio** | https://github.com/ElJavierB0/el-ultimo-cazador |
-| 📋 **Tablero de tareas** | GitHub Projects → pestaña *Projects* del repositorio |
+| 👤 **Autor** | Javier Antonio Romo Bernal ([@ElJavierB0](https://github.com/ElJavierB0)) |
+| 📖 **Explicación del código** | [docs/Explicacion-del-Codigo.docx](docs/Explicacion-del-Codigo.docx) |
 | 📄 **Licencia** | [MIT](LICENSE): código libre · modelos 3D CC0 |
+
+> **Creación de Videojuegos · Actividad 1, parte 1 (individual).** La parte 2 (en equipo) es la planeación de la versión en **Unreal Engine 5**: [el-ultimo-cazador-ue5](https://github.com/ElJavierB0/el-ultimo-cazador-ue5).
 
 ---
 
@@ -126,26 +129,26 @@ Es un sitio estático (sin compilación ni base de datos; Three.js se carga desd
 
 ---
 
-## 🗺️ Plan de trabajo
+## 📋 Entregables (Actividad 1, parte 1)
 
-| Actividad | Entrega | Estado |
-|---|---|---|
-| **Act 1:** Propuesta | Repositorio, README, juego jugable, GDD, documento técnico, tablero de tarjetas | ✅ |
-| **Act 2:** POO / Beta | Tienda (transacciones), guardado, manual de usuario, reporte de pruebas beta, PRs por integrante | ⏳ |
-| **Act 3:** Liberación | Release `v1.0.0`, despliegue en Hostinger, capturas, empaque, créditos con fotos, videos | ⏳ |
+| Entregable | Dónde |
+|---|---|
+| Propuesta del juego | Este README (sección **Propuesta**) |
+| Código completo y liberado | Este repositorio (licencia MIT) |
+| Juego disponible en línea | https://ultca.loopsoftware.com.mx (Hostinger, en lugar de GitHub Pages) |
+| Audio (música y efectos) | `js/core/AudioManager.js`, sintetizado con Web Audio API |
+| Video corto explicativo del código | Video en YouTube + guion en [docs/guion-video.md](docs/guion-video.md) |
+| Explicación escrita del código | [docs/Explicacion-del-Codigo.docx](docs/Explicacion-del-Codigo.docx) |
 
-Flujo Git: rama `main` estable y ramas `feature/<tarea>` por tarjeta, integradas con *Pull Request* revisado por el otro integrante.
+Flujo Git: rama `main` estable; cada cambio integrado a `main` se publica automáticamente en el sitio.
 
 ---
 
-## 👥 Equipo
+## 👤 Autor
 
-| Integrante | Rol | GitHub |
-|---|---|---|
-| Javier Antonio Romo Bernal | Programación, audio y diseño de niveles | [@ElJavierB0](https://github.com/ElJavierB0) |
-| Guadalupe | Diseño de juego, documentación y pruebas | [@Guadalupe-16](https://github.com/Guadalupe-16) |
+**Javier Antonio Romo Bernal** · [@ElJavierB0](https://github.com/ElJavierB0) · Diseño, programación, audio y niveles.
 
-**Materia:** Creación de Videojuegos · Desarrollo y Gestión de Software Multiplataforma
+**Materia:** Creación de Videojuegos · Ingeniería en Desarrollo y Gestión de Software · Universidad Tecnológica de Hermosillo · Profesor: Ivan Rogelio Chenoweth Chenoweth
 
 ## 🙏 Créditos
 
